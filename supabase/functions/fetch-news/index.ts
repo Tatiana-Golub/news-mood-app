@@ -7,8 +7,14 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const LIST_URL = 'https://api.freenewsapi.io/v1/news'
 const DETAILS_URL = 'https://api.freenewsapi.io/v1/details'
 
+// Fetching news only from BBC and Forbes
+const PUBLISHER_UUIDS = [
+  '13e6a296-f159-49ec-bb3c-6afd71109a16',
+  '2e86b1e6-fb77-422f-aa12-386892060bda',
+]
+
 const REQUEST_DELAY_MS = 600
-const ARTICLE_LIMIT = 20
+const ARTICLES_PER_PUBLISHER = 10
 
 interface NewsListItem {
   uuid: string
@@ -77,27 +83,35 @@ Deno.serve(async (_req: Request) => {
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-    const listRes = await fetch(`${LIST_URL}?language=en&publisher_uuid=13e6a296-f159-49ec-bb3c-6afd71109a16&publisher_uuid=2e86b1e6-fb77-422f-aa12-386892060bda`, {
-      headers: { 'x-api-key': FREENEWS_API_KEY },
-    })
+    const uuidSet = new Set<string>()
 
-    if (!listRes.ok) {
-      const errText = await listRes.text()
-      return new Response(JSON.stringify({ error: `FreeNewsApi list error: ${errText}` }), {
-        status: 502,
-        headers: { 'Content-Type': 'application/json' },
-      })
+    for (const publisherUuid of PUBLISHER_UUIDS) {
+      const listRes = await fetch(
+        `${LIST_URL}?language=en&country=us&publisher_uuid=${encodeURIComponent(publisherUuid)}`,
+        { headers: { 'x-api-key': FREENEWS_API_KEY } }
+      )
+
+      if (!listRes.ok) {
+        const errText = await listRes.text()
+        console.error(`List error for publisher ${publisherUuid}: ${errText}`)
+        await sleep(REQUEST_DELAY_MS)
+        continue
+      }
+
+      const listData: NewsListResponse = await listRes.json()
+      const items = (listData.data ?? []).slice(0, ARTICLES_PER_PUBLISHER)
+      for (const item of items) {
+        if (item.uuid) uuidSet.add(item.uuid)
+      }
+
+      await sleep(REQUEST_DELAY_MS)
     }
 
-    const listData: NewsListResponse = await listRes.json()
-    const uuids = (listData.data ?? [])
-      .slice(0, ARTICLE_LIMIT)
-      .map((i) => i.uuid)
-      .filter(Boolean)
+    const uuids = [...uuidSet]
 
     if (uuids.length === 0) {
       return new Response(
-        JSON.stringify({ error: 'No article UUIDs returned from list endpoint' }),
+        JSON.stringify({ error: 'No article UUIDs returned for the configured publishers' }),
         { status: 502, headers: { 'Content-Type': 'application/json' } }
       )
     }
@@ -124,6 +138,9 @@ Deno.serve(async (_req: Request) => {
             published_at: d.published_at,
           })
         }
+      } else {
+        const errText = await detailsRes.text()
+        console.error(`Details error for uuid ${uuid}: ${errText}`)
       }
 
       await sleep(REQUEST_DELAY_MS)
