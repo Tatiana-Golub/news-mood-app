@@ -1,0 +1,16 @@
+.wrap {
+    max-width: 1100; 
+    margin: 0 auto; 
+    padding: 24px 16px;
+}
+
+.headerWrap {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.title {
+    margin-bottom: 20px;
+}

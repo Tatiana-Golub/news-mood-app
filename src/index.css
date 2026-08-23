@@ -1,0 +1,13 @@
+body {
+  background-color: #daeaf5;
+  background-image: url(./assets/climpek.png);
+  min-height: 100vh;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: #1a1a1a;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}

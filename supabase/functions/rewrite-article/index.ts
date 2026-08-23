@@ -7,7 +7,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const GROQ_BASE_URL = 'https://api.groq.com/openai/v1/chat/completions'
 const GROQ_MODEL = 'openai/gpt-oss-120b'
 
-const VALID_MOODS = ['joyful', 'sad', 'neutral', 'ironic'] as const
+const VALID_MOODS = ['joyful', 'sad', 'neutral', 'ironic', 'sarcastic'] as const
 type Mood = (typeof VALID_MOODS)[number]
 
 interface RequestBody {
@@ -19,6 +19,19 @@ interface GroqResponse {
   choices?: {
     message: { content: string }
   }[]
+}
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
+function jsonResponse(body: unknown, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json', ...corsHeaders },
+  })
 }
 
 async function callGroq(prompt: string): Promise<string> {
@@ -54,25 +67,21 @@ const NUMBER_WORDS: Record<string, string> = {
 }
 
 function extractFacts(text: string): Set<string> {
-  const numbers = text.match(/\b\d[\d,.:%]*\b/g) ?? []
-  const capitalizedWords = text.match(/\b[A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*\b/g) ?? []
-  const normalizedNumbers = numbers.map((n) => n.toLowerCase())
-
+  const numbers = (text.match(/\b\d[\d,.:%]*\b/g) ?? []).map((n) => n.toLowerCase())
+  const capitalizedWords = (text.match(/\b[A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*\b/g) ?? []).map(
+    (s) => s.trim().toLowerCase()
+  )
   const words = text.toLowerCase().match(/\b[a-z]+\b/g) ?? []
   const spelledNumbers = words.filter((w) => w in NUMBER_WORDS).map((w) => NUMBER_WORDS[w])
 
-  return new Set([
-    ...normalizedNumbers,
-    ...spelledNumbers,
-    ...capitalizedWords.map((s) => s.trim().toLowerCase()),
-  ])
+  return new Set([...numbers, ...spelledNumbers, ...capitalizedWords])
 }
 
 function factCheck(original: string, rewritten: string): boolean {
   const originalFacts = extractFacts(original)
   const rewrittenFacts = extractFacts(rewritten)
 
-  if (originalFacts.size === 0) return true 
+  if (originalFacts.size === 0) return true
 
   let missing = 0
   for (const fact of originalFacts) {
@@ -87,10 +96,11 @@ function buildPrompt(mood: Mood, originalText: string): string {
   return `Rewrite the following news text in a ${mood} tone.
 
 Strict rules:
+- Rewrite EVERY sentence and EVERY fact from the original — do not summarize, shorten, or omit any detail, name, location, organization, date, or number.
 - Do NOT change, remove, or invent any names, dates, numbers, locations, or quotes.
 - Do NOT add facts, events, or details that are not present in the original.
 - Only adjust word choice, sentence rhythm, and framing to convey a ${mood} tone.
-- Keep roughly the same length as the original.
+- The rewritten text must be approximately the same length as the original (within 20%).
 - Return ONLY the rewritten text. No preamble, no explanation, no markdown.
 
 Original text:
@@ -100,15 +110,16 @@ ${originalText}
 }
 
 Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders })
+  }
+
   try {
     const body: RequestBody = await req.json()
     const { articleId, mood } = body
 
     if (!articleId || !VALID_MOODS.includes(mood)) {
-      return new Response(JSON.stringify({ error: 'Invalid articleId or mood' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return jsonResponse({ error: 'Invalid articleId or mood' }, 400)
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
@@ -120,10 +131,7 @@ Deno.serve(async (req: Request) => {
       .maybeSingle()
 
     if (existing) {
-      return new Response(JSON.stringify(existing), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return jsonResponse(existing, 200)
     }
 
     const { data: article, error: articleError } = await supabase
@@ -133,10 +141,7 @@ Deno.serve(async (req: Request) => {
       .single()
 
     if (articleError || !article) {
-      return new Response(JSON.stringify({ error: 'Article not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return jsonResponse({ error: 'Article not found' }, 404)
     }
 
     const prompt = buildPrompt(mood, article.original_text)
@@ -155,20 +160,11 @@ Deno.serve(async (req: Request) => {
       .single()
 
     if (insertError) {
-      return new Response(JSON.stringify({ error: insertError.message }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return jsonResponse({ error: insertError.message }, 500)
     }
 
-    return new Response(JSON.stringify(inserted), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return jsonResponse(inserted, 200)
   } catch (err) {
-    return new Response(JSON.stringify({ error: String(err) }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return jsonResponse({ error: String(err) }, 500)
   }
 })
