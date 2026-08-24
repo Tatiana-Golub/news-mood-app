@@ -48,6 +48,19 @@ interface ArticleRow {
   published_at: string
 }
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
+function jsonResponse(body: unknown, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json', ...corsHeaders },
+  })
+}
+
 function cleanText(raw: string): string {
   let text = raw
   text = text.replace(/<[^>]*>/g, ' ')
@@ -79,7 +92,11 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-Deno.serve(async (_req: Request) => {
+Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders })
+  }
+
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
@@ -110,9 +127,9 @@ Deno.serve(async (_req: Request) => {
     const uuids = [...uuidSet]
 
     if (uuids.length === 0) {
-      return new Response(
-        JSON.stringify({ error: 'No article UUIDs returned for the configured publishers' }),
-        { status: 502, headers: { 'Content-Type': 'application/json' } }
+      return jsonResponse(
+        { error: 'No article UUIDs returned for the configured publishers' },
+        502
       )
     }
 
@@ -147,10 +164,7 @@ Deno.serve(async (_req: Request) => {
     }
 
     if (rows.length === 0) {
-      return new Response(JSON.stringify({ error: 'No usable article details fetched' }), {
-        status: 502,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return jsonResponse({ error: 'No usable article details fetched' }, 502)
     }
 
     const { data, error } = await supabase
@@ -159,20 +173,11 @@ Deno.serve(async (_req: Request) => {
       .select()
 
     if (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return jsonResponse({ error: error.message }, 500)
     }
 
-    return new Response(
-      JSON.stringify({ inserted: data?.length ?? 0, total_fetched: rows.length }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    )
+    return jsonResponse({ inserted: data?.length ?? 0, total_fetched: rows.length }, 200)
   } catch (err) {
-    return new Response(JSON.stringify({ error: String(err) }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return jsonResponse({ error: String(err) }, 500)
   }
 })
