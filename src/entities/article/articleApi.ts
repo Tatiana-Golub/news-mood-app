@@ -11,6 +11,7 @@ export const articleApi = createApi({
   reducerPath: 'articleApi',
   baseQuery: fakeBaseQuery<{ message: string }>(),
   tagTypes: ['Article'],
+  keepUnusedDataFor: 300,
   endpoints: (builder) => ({
     getArticles: builder.query<Article[], void>({
       queryFn: async () => {

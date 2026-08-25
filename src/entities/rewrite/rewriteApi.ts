@@ -11,6 +11,7 @@ export const rewriteApi = createApi({
   reducerPath: 'rewriteApi',
   baseQuery: fakeBaseQuery<{ message: string }>(),
   tagTypes: ['Rewrite'],
+  keepUnusedDataFor: 300,
   endpoints: (builder) => ({
     getRewrite: builder.query<Rewrite, GetRewriteArgs>({
       queryFn: async ({ articleId, mood }) => {
