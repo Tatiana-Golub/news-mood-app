@@ -1,11 +1,20 @@
 import { useGetArticlesQuery } from '../../entities/article/articleApi'
 import { NewsCard } from './NewsCard'
+import { NewsCardSkeleton } from './NewsCardSkeleton'
 import styles from './NewsGrid.module.css'
 
 export function NewsGrid() {
   const { data: articles, isLoading, error } = useGetArticlesQuery()
 
-  if (isLoading) return <p className={styles.status}>Loading articles…</p>
+  if (isLoading) {
+    return (
+      <div className={styles.grid}>
+        {Array.from({ length: 10 }).map((_, i) => (
+          <NewsCardSkeleton key={i} />
+        ))}
+      </div>
+    )
+  }
   if (error) return <p className={styles.status}>Couldn't load articles. Try refreshing.</p>
   if (!articles || articles.length === 0) return <p className={styles.status}>No articles yet. Try refreshing.</p>
 

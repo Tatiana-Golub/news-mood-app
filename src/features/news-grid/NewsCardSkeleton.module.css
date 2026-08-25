@@ -1,0 +1,54 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.image {
+  width: 100%;
+  height: 160px;
+  background: #eef2f4;
+}
+
+.body {
+  padding: 12px 14px;
+}
+
+.line,
+.lineShort,
+.meta {
+  border-radius: 4px;
+  background: #eef2f4;
+  margin-bottom: 8px;
+}
+
+.line {
+  height: 14px;
+  width: 100%;
+}
+
+.lineShort {
+  height: 14px;
+  width: 70%;
+}
+
+.meta {
+  height: 11px;
+  width: 45%;
+  margin-bottom: 0;
+}
+
+.image,
+.line,
+.lineShort,
+.meta {
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
