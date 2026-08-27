@@ -12,7 +12,7 @@ export function NewsCard({ article }: { article: Article }) {
   return (
     <Link to={`/article/${article.id}`} className={styles.card}>
       {article.image_url && (
-        <img src={article.image_url} alt="" className={styles.image} />
+        <img src={article.image_url} alt={article.title} className={styles.image} />
       )}
       <div className={styles.body}>
         <h3 className={styles.title}>{article.title}</h3>
