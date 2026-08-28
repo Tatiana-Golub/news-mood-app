@@ -35,12 +35,30 @@
   box-shadow: none;
 }
 
+.statusBox {
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+}
+
 .status {
   font-size: 13px;
   color: #1d6b3a;
   background: #e3f5e9;
   padding: 4px 10px;
   border-radius: 6px;
+  animation: fadeOut 4s ease forwards;
+}
+
+@keyframes fadeOut {
+  0%, 70% {
+    opacity: 1;
+    visibility: visible;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+  }
 }
 
 .error {
